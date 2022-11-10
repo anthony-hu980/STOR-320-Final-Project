@@ -1,0 +1,6 @@
+"0","options(scipen=999)"
+"0","knitr::opts_chunk$set(echo = TRUE)"
+"0","library(tidyverse)"
+"2","Error: package or namespace load failed for ‘tidyverse’:
+ object ‘is_present’ is not exported by 'namespace:lifecycle'
+"

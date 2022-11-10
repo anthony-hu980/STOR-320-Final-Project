@@ -1,0 +1,62 @@
+---
+title: "STOR 320 Project Analysis"
+author: "Anthony Hu"
+date: "6/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data import 
+```{r}
+library(tidyverse)
+```
+
+```{r}
+Chicago_census <- read.csv(url("https://datahub.cmap.illinois.gov/dataset/1d2dd970-f0a6-4736-96a1-3caeb431f5e4/resource/8c4e096e-c90c-4bef-9cf1-9028d094296e/download/ReferenceCCAProfiles20142018.csv"))
+
+Chicago_socionomic <- read.csv(url("https://data.cityofchicago.org/api/views/kn9c-c2s2/rows.csv"))
+
+Chicago_schools <- read.csv(url("https://data.cityofchicago.org/api/views/9xs2-f89t/rows.csv"))
+
+Chicago_census
+Chicago_socionomic
+
+```
+## Merging datasets
+
+```{r} 
+Chicago_combined <- Chicago_socionomic %>%
+  rename(GEOG = "COMMUNITY.AREA.NAME") %>%
+  left_join(Chicago_census, by = "GEOG")
+Chicago_combined
+
+```
+### Question 3: Relationship between hardship index and transit to work
+
+```{r}
+Q3 <- Chicago_combined %>%
+  select(c("GEOG", "TOT_COMM", "DROVE_AL", "CARPOOL", "TRANSIT", 
+           "WALK_BIKE", "COMM_OTHER", "HARDSHIP.INDEX" )) %>%
+  transmute(GEOG = GEOG, DROVE = DROVE_AL / TOT_COMM, CARPOOL = CARPOOL / TOT_COMM, 
+            TRANSIT = TRANSIT / TOT_COMM, WALK_BIKE = WALK_BIKE/ TOT_COMM, 
+            COMM_OTHER = COMM_OTHER / TOT_COMM, HARDSHIP = HARDSHIP.INDEX) %>%
+  pivot_longer(c("DROVE", "CARPOOL", "TRANSIT", "WALK_BIKE", "COMM_OTHER"), names_to = "TypeTransit", values_to = "Percentage")
+
+ggplot(data = Q3, mapping = aes(x = Percentage, y = HARDSHIP, color = TypeTransit)) +
+  geom_point() +
+  facet_wrap(TypeTransit~.) + 
+  theme(legend.position = "none") 
+```
+## Question 4: 
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

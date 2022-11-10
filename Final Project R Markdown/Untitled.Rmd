@@ -1,0 +1,93 @@
+---
+title: "Final Project Code Manipulation"
+author: "Anthony Hu"
+date: "6/22/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+Chicago_census <- read.csv(url("https://datahub.cmap.illinois.gov/dataset/1d2dd970-f0a6-4736-96a1-3caeb431f5e4/resource/8c4e096e-c90c-4bef-9cf1-9028d094296e/download/ReferenceCCAProfiles20142018.csv"))
+
+Chicago_socionomic <- read.csv(url("https://data.cityofchicago.org/api/views/kn9c-c2s2/rows.csv"))
+
+Chicago_schools <- read.csv(url("https://data.cityofchicago.org/api/views/9xs2-f89t/rows.csv"))
+
+Chicago_combined <- Chicago_socionomic %>%
+  rename(GEOG = "COMMUNITY.AREA.NAME") %>%
+  left_join(Chicago_census, by = "GEOG")
+
+Chicago_combined
+```
+
+```{r}
+ttest <- Chicago_combined %>%
+  filter(WHITE > 0) %>%
+  filter(TOT_POP > 0) %>%
+  mutate(white_pct = WHITE/TOT_POP) %>%
+  mutate(is_less_average = ifelse(white_pct < mean(white_pct), "Less than average", "Greater than average")) %>%
+  select(is_less_average, everything())
+ttest
+
+a <- ggplot(data = ttest, mapping = aes(x = is_less_average, y = MEDINC)) +
+  geom_boxplot() 
+a + stat_compare_means()
+a + stat_compare_means(method = "t.test")
+```
+
+```{r}
+D <- Chicago_combined %>%
+  select(MEDINC, HARDSHIP.INDEX) %>%
+  na.omit()
+
+D1 <- scale(D)
+
+D2 <- kmeans(D1, centers = 4, nstart = 50)
+D2
+
+fviz_cluster(D2, data = D)
+```
+
+```{r}
+anova_alt_data_raw <- Chicago_schools %>%
+  select(c( "Community.Area.Name","Safety.Score")) %>%
+  transmute(GEOG = Community.Area.Name, Safety_Score = Safety.Score) %>%
+  filter(!(Safety_Score == "NDA")) %>%
+  group_by(GEOG) %>%
+  summarise(Mean = mean(Safety_Score), n=n()) %>%
+  select(c("GEOG", "Mean"))
+
+anova_alt_dataa <- Chicago_combined %>%
+  select(c("TOT_POP", "WHITE", "GEOG"))
+
+anova_alt_data <- toupper(anova_alt_dataa$GEOG)
+
+ anova_test_data1 <- cbind(anova_alt_dataa, anova_alt_data)
+ anova_test_data <- anova_test_data1 %>%
+   transmute(TOT_POP = TOT_POP, WHITE = WHITE, GEOG = anova_alt_data) %>%
+   left_join(anova_alt_data_raw, by ="GEOG") %>%
+   transmute(GEOG = GEOG, WHITE_percent = round(100*(WHITE / TOT_POP)), Safety = round(Mean, 1)) %>%
+   drop_na()
+ 
+anova_test_data2 <- cut(anova_test_data$Safety, breaks = c(0, 100/3, 200/3, 100),
+                  labels = c("Dangerous", "Moderate", "Safe"))
+anova_test_data3 <- cbind(anova_test_data, anova_test_data2)
+anova_test_data4 <- anova_test_data3 %>%
+  transmute(GEOG = GEOG, White = WHITE_percent, Safety_Score = anova_test_data2)
+
+compare_means(White ~ Safety_Score,  data = anova_test_data4, method = "anova")
+
+# Default method = "kruskal.test" for multiple groups
+ggboxplot(anova_test_data4, x = "Safety_Score", y = "White",
+          color = "Safety_Score", palette = "jco")+
+  stat_compare_means()
+# Change method to anova
+ggboxplot(anova_test_data4, x = "Safety_Score", y = "White",
+          color = "Safety_Score", palette = "jco")+
+  stat_compare_means(method = "anova")
+```
